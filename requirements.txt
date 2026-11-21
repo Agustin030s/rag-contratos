@@ -1,0 +1,15 @@
+# Python 3.12
+langchain>=1.0
+langchain-core>=1.0
+langchain-anthropic>=1.0
+langchain-huggingface>=0.1
+langchain-chroma>=1.0
+langchain-text-splitters>=1.0
+chromadb>=1.0
+tiktoken>=0.8
+# embeddings locales, sin API key (instala también torch)
+sentence-transformers>=3.0
+# rag.py importa directamente el SDK para capturar sus errores
+anthropic>=0.40
+pydantic>=2.7
+python-dotenv>=1.0

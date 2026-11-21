@@ -1,0 +1,12 @@
+# Secretos: nunca subir las API keys
+.env
+
+# Entorno virtual
+.venv/
+
+# Caché de Python
+__pycache__/
+*.pyc
+
+# Base vectorial local: se regenera con python ingest.py
+vectorstore/
