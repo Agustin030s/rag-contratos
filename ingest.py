@@ -1,8 +1,8 @@
 """Fase 1 — Ingesta: documentos -> chunks -> embeddings -> ChromaDB.
 
 Uso:
-    python ingest.py             # indexa solo si la base no existe
-    python ingest.py --reindex   # borra la colección y vuelve a indexar
+    python ingest.py             # indexa solo los documentos nuevos o modificados
+    python ingest.py --reindex   # borra la colección y vuelve a indexar todo
 
 Este módulo también expone `open_vectorstore()`, que usa rag.py para abrir la
 MISMA base con el MISMO modelo de embeddings.
@@ -81,6 +81,9 @@ def load_documents() -> list[Document]:
                     "archivo": ruta.name,
                     "proveedor": _extraer(_RE_PROVEEDOR, texto, "Proveedor", ruta.name),
                     "numero_contrato": _extraer(_RE_NUMERO, texto, "Número de contrato", ruta.name),
+                    # Huella del contenido: si cambia una sola letra, cambia el
+                    # hash y la ingesta sabe que hay que reindexar este documento.
+                    "hash_documento": hashlib.sha256(texto.encode("utf-8")).hexdigest()[:16],
                 },
             )
         )
@@ -227,27 +230,73 @@ def run_ingest(reindex: bool = False) -> int:
         if _existe_coleccion(client):
             client.delete_collection(config.COLLECTION_NAME)
             logger.info("Colección '%s' borrada (--reindex).", config.COLLECTION_NAME)
-    else:
-        cantidad = collection_count()
-        if cantidad:
-            logger.info("La base ya existe con %d chunks, se omite la ingesta.", cantidad)
-            return cantidad
 
+    cantidad = collection_count()  # verifica el modelo de embeddings
     documentos = load_documents()
     if not documentos:
         raise FileNotFoundError(f"No hay archivos {EXTENSIONES} en {config.DATA_DIR}")
 
-    chunks = split_documents(documentos)
-    vectorstore = _crear_vectorstore()
-    logger.info("Generando embeddings de %d chunks en local...", len(chunks))
-    vectorstore.add_documents(chunks, ids=[c.id for c in chunks])
+    # Comparamos el hash de cada documento con el guardado en la base. Así no
+    # alcanza con que la colección exista: si un contrato cambió, se reindexa
+    # SOLO ese contrato (y no los 10).
+    indexados = _documentos_indexados() if cantidad else {}
+    actuales = {d.metadata["archivo"]: d for d in documentos}
+    nuevos = [d for a, d in actuales.items() if a not in indexados]
+    modificados = [
+        d for a, d in actuales.items()
+        if a in indexados and indexados[a]["hash"] != d.metadata["hash_documento"]
+    ]
+    eliminados = [a for a in indexados if a not in actuales]
 
-    tokens = [contar_tokens(c.page_content) for c in chunks]
+    if not (nuevos or modificados or eliminados):
+        logger.info("La base ya existe con %d chunks, se omite la ingesta (ningún documento cambió).", cantidad)
+        return cantidad
     logger.info(
-        "Resumen: %d documentos leídos, %d chunks creados, %.0f tokens promedio por chunk (máx. %d).",
-        len(documentos), len(chunks), sum(tokens) / len(tokens), max(tokens),
+        "Cambios detectados: %d nuevos, %d modificados, %d eliminados.",
+        len(nuevos), len(modificados), len(eliminados),
     )
-    return len(chunks)
+
+    vectorstore = _crear_vectorstore()
+    # Primero borramos los chunks viejos de los documentos modificados o
+    # eliminados: si un contrato ahora tiene menos chunks, los sobrantes no
+    # quedan huérfanos en la base.
+    ids_viejos = [
+        id_ for archivo in [d.metadata["archivo"] for d in modificados] + eliminados
+        for id_ in indexados[archivo]["ids"]
+    ]
+    if ids_viejos:
+        vectorstore.delete(ids=ids_viejos)
+        logger.info("Borrados %d chunks desactualizados.", len(ids_viejos))
+
+    a_indexar = nuevos + modificados
+    chunks = split_documents(a_indexar)
+    if chunks:
+        logger.info("Generando embeddings de %d chunks en local...", len(chunks))
+        vectorstore.add_documents(chunks, ids=[c.id for c in chunks])
+        tokens = [contar_tokens(c.page_content) for c in chunks]
+        logger.info(
+            "Resumen: %d documentos leídos, %d indexados, %d chunks creados, "
+            "%.0f tokens promedio por chunk (máx. %d).",
+            len(documentos), len(a_indexar), len(chunks), sum(tokens) / len(tokens), max(tokens),
+        )
+    return collection_count() or 0
+
+
+def _documentos_indexados() -> dict[str, dict]:
+    """{archivo: {"hash": ..., "ids": [...]}} de lo que ya está en la base.
+
+    Lee solo los metadatos con el cliente de chromadb, sin cargar el modelo de
+    embeddings: si nada cambió, la ingesta termina en un instante.
+    """
+    coleccion = _client().get_collection(config.COLLECTION_NAME, embedding_function=None)
+    datos = coleccion.get(include=["metadatas"])
+    indexados: dict[str, dict] = {}
+    for id_, meta in zip(datos["ids"], datos["metadatas"]):
+        # Los chunks de una base vieja no tienen hash: hash=None nunca coincide,
+        # así que esos documentos se reindexan una vez y quedan al día.
+        entrada = indexados.setdefault(meta["archivo"], {"hash": meta.get("hash_documento"), "ids": []})
+        entrada["ids"].append(id_)
+    return indexados
 
 
 def main() -> int:
