@@ -6,8 +6,10 @@ cuanto más precisas, mejor rellena el modelo cada campo.
 """
 
 import logging
+from typing import Self
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic.json_schema import SkipJsonSchema
 
 logger = logging.getLogger(__name__)
 
@@ -65,6 +67,26 @@ class RAGResponse(BaseModel):
         default_factory=list,
         description=(
             "Fragmentos del contexto usados para responder, uno por dato citado. "
-            "Lista vacía si encontrado es false."
+            "Obligatoria (al menos una) si encontrado es true; vacía si es false."
         ),
     )
+    # Lo completa el SISTEMA, nunca el modelo: separa un fallo técnico (API caída,
+    # base sin crear...) de un "No lo sé" legítimo. SkipJsonSchema lo deja fuera
+    # del JSON Schema, así no aparece en las instrucciones de formato del LLM.
+    error: SkipJsonSchema[str | None] = Field(
+        default=None,
+        description="Mensaje del error técnico, si lo hubo. None si la consulta se procesó.",
+    )
+
+    @model_validator(mode="after")
+    def coherencia_referencias(self) -> Self:
+        # La regla vive en el esquema (y no solo en rag.py): cualquier
+        # RAGResponse, venga del LLM o del código, tiene que cumplirla. Si el
+        # LLM la rompe, el parser lanza OutputParserException y se reintenta.
+        if self.encontrado and not self.referencias:
+            raise ValueError("encontrado=true exige al menos una referencia.")
+        if not self.encontrado and self.referencias:
+            raise ValueError("encontrado=false no admite referencias.")
+        if self.error is not None and self.encontrado:
+            raise ValueError("Una respuesta con error no puede tener encontrado=true.")
+        return self
