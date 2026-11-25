@@ -10,3 +10,6 @@ __pycache__/
 
 # Base vectorial local: se regenera con python ingest.py
 vectorstore/
+
+# Caché de pytest
+.pytest_cache/

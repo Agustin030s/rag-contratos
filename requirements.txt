@@ -13,3 +13,5 @@ sentence-transformers>=3.0
 anthropic>=0.40
 pydantic>=2.7
 python-dotenv>=1.0
+# tests unitarios (sin API key): pytest
+pytest>=8.0
