@@ -1,0 +1,66 @@
+21:04:38 | INFO     | ingest | Documentos leídos: 10 (en data)
+21:04:38 | INFO     | ingest | La base ya existe con 34 chunks, se omite la ingesta (ningún documento cambió).
+21:04:42 | INFO     | rag | Consulta: ¿Cuál es el plazo de preaviso para rescindir el contrato con OndaPlay?
+21:04:42 | INFO     | ingest | Cargando el modelo de embeddings local 'intfloat/multilingual-e5-small'...
+21:04:51 | WARNING  | huggingface_hub.utils._http | Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+21:04:55 | INFO     | rag |   chunk recuperado: contrato_04_ondaplay.md #2 (distancia=0.105)
+21:04:55 | INFO     | rag |   chunk recuperado: contrato_04_ondaplay.md #0 (distancia=0.133)
+21:04:55 | INFO     | rag |   chunk recuperado: contrato_04_ondaplay.md #1 (distancia=0.140)
+21:04:55 | INFO     | rag |   chunk recuperado: contrato_08_kairos_play.md #2 (distancia=0.146)
+21:04:58 | INFO     | rag | Resultado: encontrado=True, referencias=['contrato_04_ondaplay.md', 'contrato_04_ondaplay.md']
+21:04:58 | INFO     | rag | Consulta: ¿Cuál es el precio del contrato con Netflix?
+21:04:58 | INFO     | rag |   chunk recuperado: contrato_08_kairos_play.md #1 (distancia=0.147)
+21:04:58 | INFO     | rag |   chunk recuperado: contrato_10_brisa_tv.md #0 (distancia=0.148)
+21:04:58 | INFO     | rag |   chunk recuperado: contrato_09_atlas_streaming.md #1 (distancia=0.149)
+21:04:58 | INFO     | rag |   chunk recuperado: contrato_04_ondaplay.md #1 (distancia=0.153)
+21:04:59 | INFO     | rag | Resultado: encontrado=False, referencias=[]
+21:04:59 | INFO     | rag | Consulta: ¿Qué dice el contrato de StreamVista sobre pagos en criptomonedas?
+21:04:59 | INFO     | rag |   chunk recuperado: contrato_01_streamvista.md #0 (distancia=0.146)
+21:04:59 | INFO     | rag |   chunk recuperado: contrato_01_streamvista.md #2 (distancia=0.147)
+21:04:59 | INFO     | rag |   chunk recuperado: contrato_01_streamvista.md #1 (distancia=0.160)
+21:04:59 | INFO     | rag |   chunk recuperado: contrato_09_atlas_streaming.md #0 (distancia=0.166)
+21:05:01 | INFO     | rag | Resultado: encontrado=False, referencias=[]
+21:05:01 | INFO     | rag | Consulta: ¿El precio del contrato con Mirador TV se ajusta por inflación?
+21:05:01 | INFO     | rag |   chunk recuperado: contrato_05_mirador_tv.md #1 (distancia=0.128)
+21:05:01 | INFO     | rag |   chunk recuperado: contrato_05_mirador_tv.md #2 (distancia=0.141)
+21:05:01 | INFO     | rag |   chunk recuperado: contrato_10_brisa_tv.md #1 (distancia=0.149)
+21:05:01 | INFO     | rag |   chunk recuperado: contrato_09_atlas_streaming.md #1 (distancia=0.154)
+21:05:04 | INFO     | rag | Resultado: encontrado=True, referencias=['contrato_05_mirador_tv.md', 'contrato_05_mirador_tv.md']
+21:05:04 | INFO     | rag | Consulta: ¿El contrato con Kairos Play tiene ajuste de precio? ¿Con qué índice, frecuencia y tope?
+21:05:04 | INFO     | rag |   chunk recuperado: contrato_08_kairos_play.md #1 (distancia=0.123)
+21:05:04 | INFO     | rag |   chunk recuperado: contrato_08_kairos_play.md #2 (distancia=0.133)
+21:05:04 | INFO     | rag |   chunk recuperado: contrato_08_kairos_play.md #3 (distancia=0.136)
+21:05:04 | INFO     | rag |   chunk recuperado: contrato_08_kairos_play.md #0 (distancia=0.140)
+21:05:08 | INFO     | schemas | Extracto recortado de 222 a 200 caracteres.
+21:05:08 | INFO     | rag | Resultado: encontrado=True, referencias=['contrato_08_kairos_play.md', 'contrato_08_kairos_play.md', 'contrato_08_kairos_play.md']
+21:05:08 | INFO     | rag | Comparación: ¿Qué contratos tienen ajuste por inflación y con qué índice? Responde con una línea por cada contrato que tenga ajuste, con el formato 'Proveedor: índice'. No incluyas los contratos sin ajuste. | proveedores=todos
+21:05:08 | INFO     | rag |   chunk recuperado: contrato_09_atlas_streaming.md #1 (distancia=0.140)
+21:05:08 | INFO     | rag |   chunk recuperado: contrato_09_atlas_streaming.md #3 (distancia=0.147)
+21:05:08 | INFO     | rag |   chunk recuperado: contrato_10_brisa_tv.md #1 (distancia=0.138)
+21:05:08 | INFO     | rag |   chunk recuperado: contrato_10_brisa_tv.md #2 (distancia=0.156)
+21:05:08 | INFO     | rag |   chunk recuperado: contrato_02_cinenova.md #1 (distancia=0.132)
+21:05:08 | INFO     | rag |   chunk recuperado: contrato_02_cinenova.md #2 (distancia=0.152)
+21:05:08 | INFO     | rag |   chunk recuperado: contrato_06_faro_media.md #1 (distancia=0.134)
+21:05:08 | INFO     | rag |   chunk recuperado: contrato_06_faro_media.md #2 (distancia=0.143)
+21:05:08 | INFO     | rag |   chunk recuperado: contrato_08_kairos_play.md #3 (distancia=0.121)
+21:05:08 | INFO     | rag |   chunk recuperado: contrato_08_kairos_play.md #1 (distancia=0.144)
+21:05:08 | INFO     | rag |   chunk recuperado: contrato_07_lumen_plus.md #1 (distancia=0.147)
+21:05:08 | INFO     | rag |   chunk recuperado: contrato_07_lumen_plus.md #2 (distancia=0.151)
+21:05:08 | INFO     | rag |   chunk recuperado: contrato_05_mirador_tv.md #1 (distancia=0.136)
+21:05:08 | INFO     | rag |   chunk recuperado: contrato_05_mirador_tv.md #2 (distancia=0.151)
+21:05:08 | INFO     | rag |   chunk recuperado: contrato_04_ondaplay.md #2 (distancia=0.150)
+21:05:08 | INFO     | rag |   chunk recuperado: contrato_04_ondaplay.md #1 (distancia=0.151)
+21:05:08 | INFO     | rag |   chunk recuperado: contrato_03_pantallasur.md #1 (distancia=0.130)
+21:05:08 | INFO     | rag |   chunk recuperado: contrato_03_pantallasur.md #2 (distancia=0.146)
+21:05:08 | INFO     | rag |   chunk recuperado: contrato_01_streamvista.md #1 (distancia=0.136)
+21:05:08 | INFO     | rag |   chunk recuperado: contrato_01_streamvista.md #2 (distancia=0.151)
+21:05:13 | INFO     | schemas | Extracto recortado de 201 a 200 caracteres.
+21:05:13 | INFO     | schemas | Extracto recortado de 201 a 200 caracteres.
+21:05:13 | INFO     | schemas | Extracto recortado de 222 a 200 caracteres.
+21:05:13 | INFO     | rag | Resultado: encontrado=True, referencias=['contrato_10_brisa_tv.md', 'contrato_02_cinenova.md', 'contrato_06_faro_media.md', 'contrato_08_kairos_play.md', 'contrato_03_pantallasur.md', 'contrato_01_streamvista.md']
+21:05:13 | INFO     | rag | Comparación: Compara el SLA y la penalización de CineNova y Faro Media | proveedores=['CineNova', 'Faro Media']
+21:05:13 | INFO     | rag |   chunk recuperado: contrato_02_cinenova.md #0 (distancia=0.129)
+21:05:13 | INFO     | rag |   chunk recuperado: contrato_02_cinenova.md #2 (distancia=0.134)
+21:05:13 | INFO     | rag |   chunk recuperado: contrato_06_faro_media.md #0 (distancia=0.134)
+21:05:13 | INFO     | rag |   chunk recuperado: contrato_06_faro_media.md #2 (distancia=0.141)
+21:05:18 | INFO     | rag | Resultado: encontrado=True, referencias=['contrato_02_cinenova.md', 'contrato_02_cinenova.md', 'contrato_06_faro_media.md', 'contrato_06_faro_media.md']

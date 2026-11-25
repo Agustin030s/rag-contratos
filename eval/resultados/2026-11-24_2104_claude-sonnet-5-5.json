@@ -1,0 +1,281 @@
+{
+  "fecha": "2026-11-24T21:04:37",
+  "llm_model": "claude-sonnet-5-5",
+  "embedding_model": "intfloat/multilingual-e5-small",
+  "top_k": 4,
+  "umbral_distancia": 0.18,
+  "resumen": "7 de 7 pruebas pasaron",
+  "pruebas": [
+    {
+      "prueba": "Preaviso OndaPlay",
+      "ok": true,
+      "pregunta": "¿Cuál es el plazo de preaviso para rescindir el contrato con OndaPlay?",
+      "respuesta": {
+        "respuesta": "El plazo de preaviso para rescindir el contrato con OndaPlay (CN-2026-004) es de sesenta (60) días como mínimo. Cualquiera de las partes puede rescindirlo sin expresión de causa, con notificación fehaciente a la otra parte. Además, si EL CLIENTE rescinde antes de cumplirse la mitad de la vigencia, debe abonar una penalidad equivalente a tres (3) meses de facturación calculada sobre el mínimo garantizado de suscriptores.",
+        "encontrado": true,
+        "referencias": [
+          {
+            "archivo": "contrato_04_ondaplay.md",
+            "proveedor": "OndaPlay",
+            "extracto": "Cualquiera de LAS PARTES podrá rescindir el presente contrato sin expresión de causa, notificando su decisión a la otra parte en forma fehaciente con un preaviso mínimo de sesenta (60) días."
+          },
+          {
+            "archivo": "contrato_04_ondaplay.md",
+            "proveedor": "OndaPlay",
+            "extracto": "Si EL CLIENTE rescindiera antes de cumplirse la mitad de la vigencia, deberá abonar a EL PROVEEDOR [...] el equivalente a tres (3) meses de facturación"
+          }
+        ],
+        "error": null
+      },
+      "verificaciones": {
+        "sin error técnico": true,
+        "encontrado=True": true,
+        "la respuesta menciona 60 días (ground truth)": true,
+        "las referencias incluyen el archivo de OndaPlay": true
+      }
+    },
+    {
+      "prueba": "Precio Netflix (no existe)",
+      "ok": true,
+      "pregunta": "¿Cuál es el precio del contrato con Netflix?",
+      "respuesta": {
+        "respuesta": "No lo sé",
+        "encontrado": false,
+        "referencias": [],
+        "error": null
+      },
+      "verificaciones": {
+        "sin error técnico": true,
+        "encontrado=False": true,
+        "respuesta = 'No lo sé'": true
+      }
+    },
+    {
+      "prueba": "Criptomonedas StreamVista",
+      "ok": true,
+      "pregunta": "¿Qué dice el contrato de StreamVista sobre pagos en criptomonedas?",
+      "respuesta": {
+        "respuesta": "No lo sé",
+        "encontrado": false,
+        "referencias": [],
+        "error": null
+      },
+      "verificaciones": {
+        "sin error técnico": true,
+        "encontrado=False": true,
+        "respuesta = 'No lo sé'": true
+      }
+    },
+    {
+      "prueba": "Negación de ajuste",
+      "ok": true,
+      "pregunta": "¿El precio del contrato con Mirador TV se ajusta por inflación?",
+      "respuesta": {
+        "respuesta": "No. Según la cláusula 5 del contrato con Mirador TV (CN-2026-005), las partes declaran conocer el contexto inflacionario y, aun así, acuerdan expresamente que el precio NO se ajustará por inflación ni por ningún índice durante toda la vigencia, incluidas sus eventuales renovaciones. El precio de la cláusula 4 (ARS 1.500,00 por suscriptor activo y por mes) es fijo y cualquier modificación requiere un nuevo acuerdo escrito.",
+        "encontrado": true,
+        "referencias": [
+          {
+            "archivo": "contrato_05_mirador_tv.md",
+            "proveedor": "Mirador TV",
+            "extracto": "el precio NO se ajustará por inflación ni por ningún índice durante toda la vigencia del contrato, incluidas sus eventuales renovaciones."
+          },
+          {
+            "archivo": "contrato_05_mirador_tv.md",
+            "proveedor": "Mirador TV",
+            "extracto": "El precio pactado en la cláusula 4 es fijo y cualquier modificación requerirá un nuevo acuerdo escrito."
+          }
+        ],
+        "error": null
+      },
+      "verificaciones": {
+        "sin error técnico": true,
+        "encontrado=True": true,
+        "responde que NO tiene ajuste (ground truth: sin ajuste)": true,
+        "cita el archivo de Mirador TV": true
+      }
+    },
+    {
+      "prueba": "Ajuste en el anexo",
+      "ok": true,
+      "pregunta": "¿El contrato con Kairos Play tiene ajuste de precio? ¿Con qué índice, frecuencia y tope?",
+      "respuesta": {
+        "respuesta": "Sí, el contrato con Kairos Play (CN-2026-008) tiene ajuste de precio. La cláusula 5 remite al ANEXO I, que forma parte integrante del contrato. Según el anexo, el precio por suscriptor (ARS 1.200,00 según la cláusula 4) se ajusta en forma anual, es decir, cada 12 meses. El índice es el IPC publicado por el INDEC, con la variación registrada en el período inmediatamente anterior. El ajuste de cada período tiene un tope del 30 %, y el excedente no se traslada a períodos posteriores. Para el cálculo se toma el último índice publicado a la fecha de cada ajuste.",
+        "encontrado": true,
+        "referencias": [
+          {
+            "archivo": "contrato_08_kairos_play.md",
+            "proveedor": "Kairos Play",
+            "extracto": "Las condiciones de actualización del precio se rigen por lo establecido en el ANEXO I del presente contrato, que forma parte integrante de él."
+          },
+          {
+            "archivo": "contrato_08_kairos_play.md",
+            "proveedor": "Kairos Play",
+            "extracto": "El precio por suscriptor se ajustará en forma anual, es decir, cada doce (12) meses, de acuerdo con la variación del Índice de Precios al Consumidor (IPC) publicado por el Instituto Nacional de Estad…"
+          },
+          {
+            "archivo": "contrato_08_kairos_play.md",
+            "proveedor": "Kairos Play",
+            "extracto": "El ajuste de cada período no podrá superar un tope del 30 %; el excedente no se trasladará a períodos posteriores."
+          }
+        ],
+        "error": null
+      },
+      "verificaciones": {
+        "sin error técnico": true,
+        "encontrado=True": true,
+        "índice IPC del INDEC": true,
+        "frecuencia anual": true,
+        "tope 30 %": true
+      }
+    },
+    {
+      "prueba": "Cruce: ajuste por inflación",
+      "ok": true,
+      "pregunta": "¿Qué contratos tienen ajuste por inflación y con qué índice? Responde con una línea por cada contrato que tenga ajuste, con el formato 'Proveedor: índice'. No incluyas los contratos sin ajuste.",
+      "respuesta": {
+        "respuesta": "Brisa TV: IPC (INDEC), trimestral, tope 10 %\nCineNova: IPC (INDEC), trimestral, tope 15 %\nFaro Media: CPI de EE. UU. (Oficina de Estadísticas Laborales), semestral, tope 4 %\nKairos Play: IPC (INDEC), anual, tope 30 % (según el ANEXO I)\nPantallaSur: IPC (INDEC), semestral, sin tope\nStreamVista: CPI de EE. UU. (Oficina de Estadísticas Laborales), anual, sin tope",
+        "encontrado": true,
+        "referencias": [
+          {
+            "archivo": "contrato_10_brisa_tv.md",
+            "proveedor": "Brisa TV",
+            "extracto": "se ajustará en forma trimestral, es decir, cada tres (3) meses, de acuerdo con la variación del Índice de Precios al Consumidor (IPC) publicado por el Instituto Nacional de Estadística y Censos (INDE…"
+          },
+          {
+            "archivo": "contrato_02_cinenova.md",
+            "proveedor": "CineNova",
+            "extracto": "se ajustará en forma trimestral, es decir, cada tres (3) meses, de acuerdo con la variación del Índice de Precios al Consumidor (IPC) publicado por el Instituto Nacional de Estadística y Censos (INDE…"
+          },
+          {
+            "archivo": "contrato_06_faro_media.md",
+            "proveedor": "Faro Media",
+            "extracto": "Índice de Precios al Consumidor de los Estados Unidos de América (CPI, Consumer Price Index) publicado por la Oficina de Estadísticas Laborales de ese país"
+          },
+          {
+            "archivo": "contrato_08_kairos_play.md",
+            "proveedor": "Kairos Play",
+            "extracto": "El precio por suscriptor se ajustará en forma anual, es decir, cada doce (12) meses, de acuerdo con la variación del Índice de Precios al Consumidor (IPC) publicado por el Instituto Nacional de Estad…"
+          },
+          {
+            "archivo": "contrato_03_pantallasur.md",
+            "proveedor": "PantallaSur",
+            "extracto": "se ajustará en forma semestral, es decir, cada seis (6) meses, de acuerdo con la variación del Índice de Precios al Consumidor (IPC) publicado por el Instituto Nacional de Estadística y Censos (INDEC)"
+          },
+          {
+            "archivo": "contrato_01_streamvista.md",
+            "proveedor": "StreamVista",
+            "extracto": "Índice de Precios al Consumidor de los Estados Unidos de América (CPI, Consumer Price Index) publicado por la Oficina de Estadísticas Laborales de ese país"
+          }
+        ],
+        "error": null
+      },
+      "verificaciones": {
+        "aciertos: 10 de 10": true
+      },
+      "comparacion_ground_truth": [
+        {
+          "proveedor": "StreamVista",
+          "esperado": "CPI de EE. UU.",
+          "obtenido": "CPI de EE. UU.",
+          "ok": true
+        },
+        {
+          "proveedor": "CineNova",
+          "esperado": "IPC del INDEC",
+          "obtenido": "IPC del INDEC",
+          "ok": true
+        },
+        {
+          "proveedor": "PantallaSur",
+          "esperado": "IPC del INDEC",
+          "obtenido": "IPC del INDEC",
+          "ok": true
+        },
+        {
+          "proveedor": "OndaPlay",
+          "esperado": null,
+          "obtenido": null,
+          "ok": true
+        },
+        {
+          "proveedor": "Mirador TV",
+          "esperado": null,
+          "obtenido": null,
+          "ok": true
+        },
+        {
+          "proveedor": "Faro Media",
+          "esperado": "CPI de EE. UU.",
+          "obtenido": "CPI de EE. UU.",
+          "ok": true
+        },
+        {
+          "proveedor": "Lumen+",
+          "esperado": null,
+          "obtenido": null,
+          "ok": true
+        },
+        {
+          "proveedor": "Kairos Play",
+          "esperado": "IPC del INDEC",
+          "obtenido": "IPC del INDEC",
+          "ok": true
+        },
+        {
+          "proveedor": "Atlas Streaming",
+          "esperado": null,
+          "obtenido": null,
+          "ok": true
+        },
+        {
+          "proveedor": "Brisa TV",
+          "esperado": "IPC del INDEC",
+          "obtenido": "IPC del INDEC",
+          "ok": true
+        }
+      ]
+    },
+    {
+      "prueba": "Comparación SLA",
+      "ok": true,
+      "pregunta": "Compara el SLA y la penalización de CineNova y Faro Media",
+      "respuesta": {
+        "respuesta": "SLA (Cláusula 8): CineNova garantiza una disponibilidad mensual del 99,5 % (excluido el mantenimiento programado); si no la cumple, bonifica el 5 % de la factura de ese mes, descontado de la facturación siguiente. Faro Media garantiza una disponibilidad mensual del 99,9 % (también excluido el mantenimiento programado); si no la cumple, bonifica el 12 % de la factura de ese mes, descontado de la facturación siguiente. Penalización por rescisión anticipada (Cláusula 9): en ambos contratos, si EL CLIENTE rescinde antes de cumplirse la mitad de la vigencia, debe pagar una penalidad calculada sobre el mínimo garantizado de suscriptores. En CineNova equivale a 2 meses de facturación, con preaviso mínimo de 30 días; en Faro Media equivale a 6 meses de facturación, con preaviso mínimo de 90 días. En resumen, Faro Media ofrece un SLA más exigente y una bonificación mayor, pero también una penalidad por rescisión anticipada y un preaviso considerablemente más altos que CineNova.",
+        "encontrado": true,
+        "referencias": [
+          {
+            "archivo": "contrato_02_cinenova.md",
+            "proveedor": "CineNova",
+            "extracto": "garantiza una disponibilidad mensual del servicio de streaming del 99,5 %... bonificación del 5 % sobre la factura de ese mes"
+          },
+          {
+            "archivo": "contrato_02_cinenova.md",
+            "proveedor": "CineNova",
+            "extracto": "penalidad por rescisión anticipada, el equivalente a dos (2) meses de facturación calculada sobre el mínimo garantizado de suscriptores"
+          },
+          {
+            "archivo": "contrato_06_faro_media.md",
+            "proveedor": "Faro Media",
+            "extracto": "garantiza una disponibilidad mensual del servicio de streaming del 99,9 %... bonificación del 12 % sobre la factura de ese mes"
+          },
+          {
+            "archivo": "contrato_06_faro_media.md",
+            "proveedor": "Faro Media",
+            "extracto": "penalidad por rescisión anticipada, el equivalente a seis (6) meses de facturación calculada sobre el mínimo garantizado de suscriptores"
+          }
+        ],
+        "error": null
+      },
+      "verificaciones": {
+        "sin error técnico": true,
+        "encontrado=True": true,
+        "CineNova: SLA 99.5 %": true,
+        "CineNova: penalización 5 %": true,
+        "cita el archivo de CineNova": true,
+        "Faro Media: SLA 99.9 %": true,
+        "Faro Media: penalización 12 %": true,
+        "cita el archivo de Faro Media": true
+      }
+    }
+  ]
+}

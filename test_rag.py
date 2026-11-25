@@ -2,7 +2,10 @@
 
 Uso:  python test_rag.py
 
-Si la base vectorial no existe, primero ejecuta la ingesta.
+Antes de las pruebas ejecuta la ingesta (incremental: si la base existe y
+ningún contrato cambió, no hace nada). Cada corrida deja evidencia en
+eval/resultados/: un .json con las respuestas y verificaciones, y un .log con
+el log completo, ambos con la fecha y el modelo en el nombre.
 """
 
 import asyncio
@@ -10,6 +13,7 @@ import json
 import logging
 import os
 import re
+from datetime import datetime
 
 from dotenv import load_dotenv
 
@@ -17,7 +21,12 @@ import config
 from schemas import RAGResponse
 
 GROUND_TRUTH: dict[str, dict] = {}
-resultados: list[tuple[str, bool]] = []
+resultados: list[dict] = []
+
+RESULTADOS_DIR = config.EVAL_DIR / "resultados"
+INICIO = datetime.now()
+# Ej.: eval/resultados/2026-11-24_1530_claude-sonnet-5-5.json (y .log)
+NOMBRE_CORRIDA = f"{INICIO:%Y-%m-%d_%H%M}_{config.LLM_MODEL}"
 
 
 # ---------------------------------------------------------------------------
@@ -33,7 +42,8 @@ def normalizar(texto: str) -> str:
 
 
 def es_no_lo_se(r: RAGResponse) -> bool:
-    return r.respuesta.strip().rstrip(".") == "No lo sé"
+    # Un error técnico NO cuenta como "No lo sé", aunque tenga encontrado=false.
+    return r.error is None and r.respuesta.strip().rstrip(".") == "No lo sé"
 
 
 def cita(r: RAGResponse, proveedor: str) -> bool:
@@ -41,11 +51,34 @@ def cita(r: RAGResponse, proveedor: str) -> bool:
 
 
 def verificar(nombre: str, pregunta: str, r: RAGResponse, checks: dict[str, bool]) -> None:
+    checks = {"sin error técnico": r.error is None, **checks}
     print(f"Pregunta: {pregunta}")
     print(r.model_dump_json(indent=2))
     for descripcion, ok in checks.items():
         print(f"  {'✔' if ok else '✘'} {descripcion}")
-    resultados.append((nombre, all(checks.values())))
+    resultados.append({
+        "prueba": nombre,
+        "ok": all(checks.values()),
+        "pregunta": pregunta,
+        "respuesta": r.model_dump(),
+        "verificaciones": checks,
+    })
+
+
+def guardar_evidencia() -> None:
+    """Guarda las respuestas reales de esta corrida, con fecha y modelos."""
+    reporte = {
+        "fecha": INICIO.isoformat(timespec="seconds"),
+        "llm_model": config.LLM_MODEL,
+        "embedding_model": config.EMBEDDING_MODEL,
+        "top_k": config.TOP_K,
+        "umbral_distancia": config.UMBRAL_DISTANCIA,
+        "resumen": f"{sum(r['ok'] for r in resultados)} de {len(resultados)} pruebas pasaron",
+        "pruebas": resultados,
+    }
+    ruta = RESULTADOS_DIR / f"{NOMBRE_CORRIDA}.json"
+    ruta.write_text(json.dumps(reporte, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(f"\nEvidencia guardada en {ruta.relative_to(config.BASE_DIR)} (y el log en .log)")
 
 
 # ---------------------------------------------------------------------------
@@ -134,6 +167,7 @@ async def prueba_cruce() -> None:
     r = await compare_contracts(consulta)
     print(f"Pregunta: {pregunta}")
     print(r.model_dump_json(indent=2))
+    comparacion = []
 
     # Para cada proveedor: ¿aparece en alguna línea de la respuesta y con qué índice?
     lineas = [normalizar(linea) for linea in r.respuesta.splitlines() if linea.strip()]
@@ -143,15 +177,30 @@ async def prueba_cruce() -> None:
         linea = next((l for l in lineas if proveedor.lower() in l), None)
         predicho = None
         if linea is not None:
-            predicho = "IPC del INDEC" if "ipc" in linea else "CPI de EE. UU." if "cpi" in linea else "?"
+            # El CPI se revisa PRIMERO: el modelo a veces escribe "IPC de EE. UU. (CPI)",
+            # que también contiene "ipc".
+            if any(s in linea for s in ("cpi", "ee. uu", "ee.uu", "estados unidos")):
+                predicho = "CPI de EE. UU."
+            elif "ipc" in linea or "indec" in linea:
+                predicho = "IPC del INDEC"
+            else:
+                predicho = "?"
         ok = predicho == gt["indice"]
         aciertos += ok
+        comparacion.append({"proveedor": proveedor, "esperado": gt["indice"], "obtenido": predicho, "ok": ok})
         print(
             f"  {'✔' if ok else '✘'} {proveedor:<16} esperado: {gt['indice'] or 'sin ajuste':<16}"
             f" obtenido: {predicho or 'sin ajuste'}"
         )
     print(f"  Aciertos: {aciertos} de {len(GROUND_TRUTH)}")
-    resultados.append(("Cruce: ajuste por inflación", aciertos == len(GROUND_TRUTH)))
+    resultados.append({
+        "prueba": "Cruce: ajuste por inflación",
+        "ok": r.error is None and aciertos == len(GROUND_TRUTH),
+        "pregunta": consulta,
+        "respuesta": r.model_dump(),
+        "verificaciones": {f"aciertos: {aciertos} de {len(GROUND_TRUTH)}": aciertos == len(GROUND_TRUTH)},
+        "comparacion_ground_truth": comparacion,
+    })
 
 
 async def prueba_comparacion() -> None:
@@ -185,12 +234,11 @@ async def main() -> None:
         {g["proveedor"]: g for g in json.loads(config.GROUND_TRUTH_PATH.read_text(encoding="utf-8"))}
     )
 
-    from ingest import collection_count, run_ingest
+    from ingest import run_ingest
 
     try:
-        if not collection_count():
-            separador("La base vectorial no existe: se ejecuta la ingesta")
-            run_ingest()
+        separador("Ingesta (solo indexa lo que no está o cambió)")
+        run_ingest()
     except Exception as exc:
         logging.error("No se pudo preparar la base [%s]: %s", type(exc).__name__, exc)
         return
@@ -203,19 +251,27 @@ async def main() -> None:
     await prueba_comparacion()
 
     separador("RESUMEN")
-    for nombre, ok in resultados:
-        print(f"  {'✔' if ok else '✘'} {nombre}")
-    pasaron = sum(ok for _, ok in resultados)
+    for r in resultados:
+        print(f"  {'✔' if r['ok'] else '✘'} {r['prueba']}")
+    pasaron = sum(r["ok"] for r in resultados)
     print(f"\n{pasaron} de {len(resultados)} pruebas pasaron")
+    guardar_evidencia()
 
 
 if __name__ == "__main__":
     load_dotenv()
+    RESULTADOS_DIR.mkdir(parents=True, exist_ok=True)
+    # El log va a la consola y, además, a un archivo: queda como evidencia.
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
         datefmt="%H:%M:%S",
+        handlers=[
+            logging.StreamHandler(),
+            logging.FileHandler(RESULTADOS_DIR / f"{NOMBRE_CORRIDA}.log", encoding="utf-8"),
+        ],
     )
     # Bajamos el ruido de las librerías HTTP para que se lean los logs del RAG.
-    logging.getLogger("httpx").setLevel(logging.WARNING)
+    for ruidoso in ("httpx", "httpx2", "sentence_transformers"):
+        logging.getLogger(ruidoso).setLevel(logging.WARNING)
     asyncio.run(main())
