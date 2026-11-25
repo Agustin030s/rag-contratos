@@ -1,8 +1,9 @@
 """Fases 2 y 3 — Recuperación y generación (RAG) con una cadena LCEL asíncrona.
 
 Flujo:
-    pregunta -> retriever (top_k) -> format_docs -> prompt grounded
-             -> LLM -> PydanticOutputParser (+ with_retry) -> RAGResponse
+    pregunta -> búsqueda con distancia (top_k) -> umbral de distancia
+             -> format_docs -> prompt grounded -> LLM
+             -> PydanticOutputParser (+ with_retry) -> RAGResponse
              -> validación de referencias
 
 Dos puntos de entrada:
@@ -38,6 +39,7 @@ from schemas import RAGResponse
 logger = logging.getLogger(__name__)
 
 NO_LO_SE = "No lo sé"
+RESPUESTA_ERROR = "No se pudo responder por un error técnico."
 
 
 def _no_lo_se() -> RAGResponse:
@@ -55,6 +57,26 @@ def format_docs(docs: list[Document]) -> str:
     )
 
 
+def filtrar_por_umbral(resultados: list[tuple[Document, float]]) -> list[Document]:
+    """Registra cada fragmento con su distancia y descarta los que superan el umbral."""
+    docs = []
+    for doc, distancia in resultados:
+        aceptado = distancia <= config.UMBRAL_DISTANCIA
+        logger.info(
+            "  chunk recuperado: %s #%d (distancia=%.3f)%s",
+            doc.metadata["archivo"], doc.metadata["chunk_index"], distancia,
+            "" if aceptado else " -> descartado, supera el umbral",
+        )
+        if aceptado:
+            docs.append(doc)
+    if resultados and not docs:
+        logger.info(
+            "Ningún fragmento queda bajo el umbral (%.2f): se responde '%s' sin llamar al LLM.",
+            config.UMBRAL_DISTANCIA, NO_LO_SE,
+        )
+    return docs
+
+
 # ---------------------------------------------------------------------------
 # Prompt: "filtro de veracidad"
 # ---------------------------------------------------------------------------
@@ -67,8 +89,9 @@ _prompt_base = ChatPromptTemplate.from_messages(
             "Eres un asistente legal que analiza contratos. Responde SOLO con la "
             "información del CONTEXTO.\n"
             "Reglas:\n"
-            f"- Si la respuesta no está en el contexto, responde exactamente '{NO_LO_SE}' "
-            "y marca encontrado=false.\n"
+            f"- Si la respuesta no está en el contexto, responde exactamente '{NO_LO_SE}', "
+            "marca encontrado=false y deja referencias vacía.\n"
+            "- Si encontrado=true, incluye al menos una referencia.\n"
             "- No inventes cifras, fechas ni cláusulas. Cita el archivo de cada dato.\n"
             "- Atención a las negaciones: que un contrato mencione la inflación no "
             "significa que tenga ajuste. Lee la frase completa.\n"
@@ -100,8 +123,9 @@ def _crear_llm():
     return ChatAnthropic(model=config.LLM_MODEL, max_tokens=config.LLM_MAX_TOKENS)
 
 
-# Se reintenta un JSON mal formado y los errores transitorios de red.
-# AuthenticationError NO está a propósito: una key inválida no se arregla reintentando.
+# Se reintenta un JSON mal formado (o que rompe las reglas del esquema) y los
+# errores transitorios de red. AuthenticationError NO está a propósito: una key
+# inválida no se arregla reintentando.
 ERRORES_REINTENTABLES: tuple[type[BaseException], ...] = (
     OutputParserException,
     anthropic.APIConnectionError,  # incluye APITimeoutError
@@ -116,7 +140,7 @@ ERRORES_REINTENTABLES: tuple[type[BaseException], ...] = (
 class _Componentes:
     vectorstore: object
     responder: Runnable  # {"docs", "pregunta"} -> RAGResponse
-    rag_chain: Runnable  # pregunta -> {"docs", "pregunta", "respuesta"}
+    rag_chain: Runnable  # pregunta -> {"resultados", "docs", "pregunta", "respuesta"}
 
 
 @lru_cache(maxsize=1)
@@ -124,10 +148,15 @@ def _get_componentes() -> _Componentes:
     # Se crean la primera vez que se usan (y no al importar el módulo): así
     # importar rag.py no falla si todavía no hay base o API key. lru_cache no
     # guarda las excepciones, así que si falla se vuelve a intentar.
+    # OJO: es una función BLOQUEANTE (carga el modelo de embeddings, ~470 MB).
+    # Desde código async se llama con asyncio.to_thread para no frenar el event loop.
     vectorstore = open_vectorstore()
-    # Mismo modelo de embeddings que la ingesta: open_vectorstore() usa
-    # config.EMBEDDING_MODEL y verifica que coincida con el de la base.
-    retriever = vectorstore.as_retriever(search_kwargs={"k": config.TOP_K})
+
+    # Búsqueda CON distancia como primer paso de la cadena. as_retriever() no
+    # devuelve la distancia, y la necesitamos para el log y para el umbral;
+    # así se busca una sola vez por consulta.
+    async def buscar(pregunta: str) -> list[tuple[Document, float]]:
+        return await vectorstore.asimilarity_search_with_score(pregunta, k=config.TOP_K)
 
     # .with_retry() envuelve a llm | parser: si el modelo devuelve un JSON mal
     # formado, el parser lanza OutputParserException DENTRO del bloque
@@ -144,16 +173,20 @@ def _get_componentes() -> _Componentes:
         | prompt
         | generar
     )
-    # Sin documentos no hay contexto: respondemos "No lo sé" sin llamar al LLM.
+    # Sin documentos (ninguno pasó el umbral) no hay contexto: respondemos
+    # "No lo sé" sin llamar al LLM.
     responder = RunnableBranch(
         (lambda x: not x["docs"], RunnableLambda(lambda _: _no_lo_se())),
         respuesta_llm,
     )
-    # RunnableParallel conserva los documentos recuperados junto a la respuesta,
-    # para poder validar después las referencias contra lo que realmente se usó.
-    rag_chain = RunnableParallel(
-        docs=retriever, pregunta=RunnablePassthrough()
-    ) | RunnablePassthrough.assign(respuesta=responder)
+    # RunnableParallel conserva lo recuperado junto a la pregunta; los pasos
+    # siguientes agregan los documentos filtrados y la respuesta. Al final
+    # tenemos todo junto para validar las referencias contra lo que se usó.
+    rag_chain = (
+        RunnableParallel(resultados=RunnableLambda(buscar), pregunta=RunnablePassthrough())
+        | RunnablePassthrough.assign(docs=itemgetter("resultados") | RunnableLambda(filtrar_por_umbral))
+        | RunnablePassthrough.assign(respuesta=responder)
+    )
 
     return _Componentes(vectorstore=vectorstore, responder=responder, rag_chain=rag_chain)
 
@@ -165,8 +198,8 @@ def _validar_respuesta(respuesta: RAGResponse, docs: list[Document]) -> RAGRespo
     """Filtro anti-alucinación aplicado DESPUÉS del modelo."""
     if not respuesta.encontrado:
         # Garantizamos el contrato de la API: "no encontrado" siempre es
-        # exactamente "No lo sé" y sin referencias.
-        if respuesta.respuesta != NO_LO_SE or respuesta.referencias:
+        # exactamente "No lo sé" (el esquema ya impide que traiga referencias).
+        if respuesta.respuesta != NO_LO_SE:
             logger.info("encontrado=false: se normaliza la respuesta a '%s'.", NO_LO_SE)
         return _no_lo_se()
 
@@ -182,28 +215,38 @@ def _validar_respuesta(respuesta: RAGResponse, docs: list[Document]) -> RAGRespo
             logger.warning("Referencia descartada: '%s' no está entre los documentos recuperados.", ref.archivo)
 
     if not validas:
-        logger.warning("La respuesta no tiene ninguna referencia válida.")
-    return respuesta.model_copy(update={"referencias": validas})
+        # Una respuesta "encontrada" sin ninguna fuente real no se puede
+        # verificar: es preferible abstenerse que devolver algo sin respaldo.
+        logger.warning("encontrado=true pero ninguna referencia es válida: se responde '%s'.", NO_LO_SE)
+        return _no_lo_se()
+
+    # Construimos un objeto nuevo (y no model_copy) para que el model_validator
+    # del esquema vuelva a comprobar la coherencia.
+    return RAGResponse(respuesta=respuesta.respuesta, encontrado=True, referencias=validas)
 
 
 def _respuesta_error(exc: Exception) -> RAGResponse:
-    """Registra el error y devuelve una respuesta controlada (nunca crashea)."""
+    """Registra el error y devuelve una respuesta controlada (nunca crashea).
+
+    El detalle va en el campo `error`, así quien llama distingue un fallo
+    técnico de un "No lo sé" legítimo.
+    """
     if isinstance(exc, anthropic.AuthenticationError):
         logger.error("Error de autenticación con Anthropic: revisa ANTHROPIC_API_KEY (no se reintenta).")
-        mensaje = "Error: no se pudo autenticar con el proveedor del modelo."
+        mensaje = "No se pudo autenticar con Anthropic: revisa ANTHROPIC_API_KEY."
     elif isinstance(exc, anthropic.APIError):  # incluye conexión, timeout y rate limit
         logger.error("Error de la API de Anthropic [%s]: %s", type(exc).__name__, exc)
-        mensaje = "Error: el servicio del modelo no está disponible. Intenta más tarde."
+        mensaje = f"La API de Anthropic no está disponible ({type(exc).__name__}). Intenta más tarde."
     elif isinstance(exc, OutputParserException):
         logger.error("El modelo devolvió un JSON inválido tras los reintentos: %s", exc)
-        mensaje = "Error: el modelo no devolvió una respuesta con el formato esperado."
+        mensaje = "El modelo no devolvió una respuesta con el formato esperado."
     elif isinstance(exc, (EmbeddingModelMismatchError, RuntimeError, ValueError, ImportError, OSError)):
         logger.error("Error de configuración [%s]: %s", type(exc).__name__, exc)
         mensaje = f"Error de configuración: {exc}"
     else:
         logger.exception("Error inesperado [%s]: %s", type(exc).__name__, exc)
-        mensaje = "Error: ocurrió un problema inesperado al procesar la consulta."
-    return RAGResponse(respuesta=mensaje, encontrado=False, referencias=[])
+        mensaje = f"Error inesperado ({type(exc).__name__})."
+    return RAGResponse(respuesta=RESPUESTA_ERROR, encontrado=False, referencias=[], error=mensaje)
 
 
 def _log_resultado(respuesta: RAGResponse) -> None:
@@ -225,20 +268,9 @@ async def get_rag_response(query: str) -> RAGResponse:
 
     logger.info("Consulta: %s", query)
     try:
-        comp = _get_componentes()
-
-        # as_retriever() devuelve los documentos pero NO la distancia. Para el
-        # log de diagnóstico repetimos la búsqueda con score. Es local y
-        # gratis: solo se calcula otra vez el embedding de la consulta.
-        con_distancia = await comp.vectorstore.asimilarity_search_with_score(query, k=config.TOP_K)
-        for doc, distancia in con_distancia:
-            logger.info(
-                "  chunk recuperado: %s #%d (distancia=%.3f)",
-                doc.metadata["archivo"], doc.metadata["chunk_index"], distancia,
-            )
-
-        # a. búsqueda de similitud  b. prompt con los fragmentos
-        # c. LLM asíncrono          d. parseo a RAGResponse
+        comp = await asyncio.to_thread(_get_componentes)
+        # a. búsqueda de similitud (con distancia) + umbral
+        # b. prompt con los fragmentos  c. LLM asíncrono  d. parseo a RAGResponse
         salida = await comp.rag_chain.ainvoke(query)
     except Exception as exc:  # red de seguridad: la función nunca rompe el programa
         return _respuesta_error(exc)
@@ -265,12 +297,12 @@ async def compare_contracts(query: str, proveedores: list[str] | None = None) ->
     """
     logger.info("Comparación: %s | proveedores=%s", query, proveedores or "todos")
     try:
-        comp = _get_componentes()
+        comp = await asyncio.to_thread(_get_componentes)
         if proveedores is None:
             proveedores = _listar_proveedores(comp.vectorstore)
 
         # Las búsquedas son independientes: las lanzamos en paralelo.
-        resultados = await asyncio.gather(
+        por_proveedor = await asyncio.gather(
             *(
                 comp.vectorstore.asimilarity_search_with_score(
                     query, k=config.COMPARE_K_POR_CONTRATO, filter={"proveedor": p}
@@ -278,17 +310,13 @@ async def compare_contracts(query: str, proveedores: list[str] | None = None) ->
                 for p in proveedores
             )
         )
-
-        docs: list[Document] = []
-        for proveedor, encontrados in zip(proveedores, resultados):
+        for proveedor, encontrados in zip(proveedores, por_proveedor):
             if not encontrados:
                 logger.warning("  sin fragmentos para el proveedor '%s'.", proveedor)
-            for doc, distancia in encontrados:
-                logger.info(
-                    "  chunk recuperado: %s #%d (distancia=%.3f)",
-                    doc.metadata["archivo"], doc.metadata["chunk_index"], distancia,
-                )
-                docs.append(doc)
+
+        # Mismo umbral que la búsqueda normal: un contrato que no tiene nada
+        # parecido a la pregunta no aporta contexto.
+        docs = filtrar_por_umbral([r for encontrados in por_proveedor for r in encontrados])
 
         # UNA sola llamada al LLM, con el mismo prompt y el mismo parser.
         respuesta = await comp.responder.ainvoke({"docs": docs, "pregunta": query})

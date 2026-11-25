@@ -62,3 +62,12 @@ if not 3 <= TOP_K <= 5:
 
 # Modo comparación: cuántos fragmentos se recuperan de CADA contrato.
 COMPARE_K_POR_CONTRATO = 2
+
+# Umbral de abstención: los fragmentos con distancia coseno MAYOR se descartan.
+# Si no queda ninguno, se responde "No lo sé" SIN llamar al LLM. La base
+# siempre devuelve k fragmentos, así que sin umbral esa rama nunca se activaría.
+# Calibrado con multilingual-e5-small sobre este dataset: las preguntas sobre
+# los contratos quedaron entre 0,105 y 0,168, y las preguntas fuera de tema
+# ("receta de empanadas", "mundial de 1986") desde 0,187. Si cambias el modelo
+# de embeddings, hay que volver a calibrarlo: cada modelo tiene su escala.
+UMBRAL_DISTANCIA = float(os.getenv("UMBRAL_DISTANCIA") or 0.18)
